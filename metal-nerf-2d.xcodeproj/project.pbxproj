@@ -1,0 +1,449 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D0232AF428A8EA8700582672 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0232AF328A8EA8700582672 /* AppDelegate.swift */; };
+		D0232AF628A8EA8700582672 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0232AF528A8EA8700582672 /* SceneDelegate.swift */; };
+		D0232AF828A8EA8700582672 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0232AF728A8EA8700582672 /* ViewController.swift */; };
+		D0232AFD28A8EA8900582672 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D0232AFC28A8EA8900582672 /* Assets.xcassets */; };
+		D0232B0028A8EA8900582672 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = D0232AFE28A8EA8900582672 /* LaunchScreen.storyboard */; };
+		D0232B0B28A95A4E00582672 /* NERF2DMLCompute.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0232B0A28A95A4E00582672 /* NERF2DMLCompute.swift */; };
+		D0232B0E28A95B0200582672 /* MLCompute.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D0232B0D28A95B0200582672 /* MLCompute.framework */; };
+		D0D79E5428BA2E9700253724 /* NERF2DMPSGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D79E5328BA2E9700253724 /* NERF2DMPSGraph.swift */; };
+		D0D79E5828BA63E100253724 /* NERFCoreML.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D79E5728BA63E100253724 /* NERFCoreML.swift */; };
+		D0D79E5D28BA647900253724 /* SwiftCoreMLTools in Frameworks */ = {isa = PBXBuildFile; productRef = D0D79E5C28BA647900253724 /* SwiftCoreMLTools */; };
+		D0D79E5F28BA81C600253724 /* NERF2DMPSNN.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D79E5E28BA81C600253724 /* NERF2DMPSNN.swift */; };
+		D0D79E6128BA87C600253724 /* MetalPerformanceShaders.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D0D79E6028BA87C600253724 /* MetalPerformanceShaders.framework */; };
+		D0ECFD3C28BA9B0F00C497C3 /* UIImage+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0ECFD3B28BA9B0F00C497C3 /* UIImage+Convenience.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		D0232AF028A8EA8700582672 /* metal-nerf-2d.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "metal-nerf-2d.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D0232AF328A8EA8700582672 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		D0232AF528A8EA8700582672 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		D0232AF728A8EA8700582672 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		D0232AFC28A8EA8900582672 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D0232AFF28A8EA8900582672 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		D0232B0128A8EA8900582672 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D0232B0728A8EAAF00582672 /* metal-nerf-2d.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "metal-nerf-2d.entitlements"; sourceTree = "<group>"; };
+		D0232B0A28A95A4E00582672 /* NERF2DMLCompute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NERF2DMLCompute.swift; sourceTree = "<group>"; };
+		D0232B0D28A95B0200582672 /* MLCompute.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MLCompute.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.sdk/System/Library/Frameworks/MLCompute.framework; sourceTree = DEVELOPER_DIR; };
+		D0D79E5328BA2E9700253724 /* NERF2DMPSGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NERF2DMPSGraph.swift; sourceTree = "<group>"; };
+		D0D79E5728BA63E100253724 /* NERFCoreML.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NERFCoreML.swift; sourceTree = "<group>"; };
+		D0D79E5E28BA81C600253724 /* NERF2DMPSNN.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NERF2DMPSNN.swift; sourceTree = "<group>"; };
+		D0D79E6028BA87C600253724 /* MetalPerformanceShaders.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalPerformanceShaders.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.sdk/System/Library/Frameworks/MetalPerformanceShaders.framework; sourceTree = DEVELOPER_DIR; };
+		D0ECFD3B28BA9B0F00C497C3 /* UIImage+Convenience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Convenience.swift"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D0232AED28A8EA8700582672 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D0D79E6128BA87C600253724 /* MetalPerformanceShaders.framework in Frameworks */,
+				D0D79E5D28BA647900253724 /* SwiftCoreMLTools in Frameworks */,
+				D0232B0E28A95B0200582672 /* MLCompute.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D0232AE728A8EA8700582672 = {
+			isa = PBXGroup;
+			children = (
+				D0232AF228A8EA8700582672 /* metal-nerf-2d */,
+				D0232AF128A8EA8700582672 /* Products */,
+				D0232B0C28A95B0200582672 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		D0232AF128A8EA8700582672 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D0232AF028A8EA8700582672 /* metal-nerf-2d.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D0232AF228A8EA8700582672 /* metal-nerf-2d */ = {
+			isa = PBXGroup;
+			children = (
+				D0232B0928A8EACC00582672 /* Sources */,
+				D0232B0828A8EAC600582672 /* Resources */,
+			);
+			path = "metal-nerf-2d";
+			sourceTree = "<group>";
+		};
+		D0232B0828A8EAC600582672 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D0232B0728A8EAAF00582672 /* metal-nerf-2d.entitlements */,
+				D0232AFC28A8EA8900582672 /* Assets.xcassets */,
+				D0232AFE28A8EA8900582672 /* LaunchScreen.storyboard */,
+				D0232B0128A8EA8900582672 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		D0232B0928A8EACC00582672 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				D042607328C3B4A300F1E23D /* NERFs */,
+				D0232AF328A8EA8700582672 /* AppDelegate.swift */,
+				D0232AF528A8EA8700582672 /* SceneDelegate.swift */,
+				D0232AF728A8EA8700582672 /* ViewController.swift */,
+				D0ECFD3B28BA9B0F00C497C3 /* UIImage+Convenience.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		D0232B0C28A95B0200582672 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D0D79E6028BA87C600253724 /* MetalPerformanceShaders.framework */,
+				D0232B0D28A95B0200582672 /* MLCompute.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D042607328C3B4A300F1E23D /* NERFs */ = {
+			isa = PBXGroup;
+			children = (
+				D0232B0A28A95A4E00582672 /* NERF2DMLCompute.swift */,
+				D0D79E5E28BA81C600253724 /* NERF2DMPSNN.swift */,
+				D0D79E5328BA2E9700253724 /* NERF2DMPSGraph.swift */,
+				D0D79E5728BA63E100253724 /* NERFCoreML.swift */,
+			);
+			path = NERFs;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D0232AEF28A8EA8700582672 /* metal-nerf-2d */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D0232B0428A8EA8900582672 /* Build configuration list for PBXNativeTarget "metal-nerf-2d" */;
+			buildPhases = (
+				D0232AEC28A8EA8700582672 /* Sources */,
+				D0232AED28A8EA8700582672 /* Frameworks */,
+				D0232AEE28A8EA8700582672 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "metal-nerf-2d";
+			packageProductDependencies = (
+				D0D79E5C28BA647900253724 /* SwiftCoreMLTools */,
+			);
+			productName = "ml-compute-swift";
+			productReference = D0232AF028A8EA8700582672 /* metal-nerf-2d.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D0232AE828A8EA8700582672 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1400;
+				LastUpgradeCheck = 1400;
+				TargetAttributes = {
+					D0232AEF28A8EA8700582672 = {
+						CreatedOnToolsVersion = 14.0;
+					};
+				};
+			};
+			buildConfigurationList = D0232AEB28A8EA8700582672 /* Build configuration list for PBXProject "metal-nerf-2d" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D0232AE728A8EA8700582672;
+			packageReferences = (
+				D0D79E5B28BA647900253724 /* XCRemoteSwiftPackageReference "SwiftCoreMLTools" */,
+			);
+			productRefGroup = D0232AF128A8EA8700582672 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D0232AEF28A8EA8700582672 /* metal-nerf-2d */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D0232AEE28A8EA8700582672 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D0232B0028A8EA8900582672 /* LaunchScreen.storyboard in Resources */,
+				D0232AFD28A8EA8900582672 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D0232AEC28A8EA8700582672 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D0232B0B28A95A4E00582672 /* NERF2DMLCompute.swift in Sources */,
+				D0ECFD3C28BA9B0F00C497C3 /* UIImage+Convenience.swift in Sources */,
+				D0232AF828A8EA8700582672 /* ViewController.swift in Sources */,
+				D0D79E5428BA2E9700253724 /* NERF2DMPSGraph.swift in Sources */,
+				D0232AF828A8EA8700582672 /* ViewController.swift in Sources */,
+				D0D79E5828BA63E100253724 /* NERFCoreML.swift in Sources */,
+				D0232AF428A8EA8700582672 /* AppDelegate.swift in Sources */,
+				D0232AF628A8EA8700582672 /* SceneDelegate.swift in Sources */,
+				D0D79E5F28BA81C600253724 /* NERF2DMPSNN.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		D0232AFE28A8EA8900582672 /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D0232AFF28A8EA8900582672 /* Base */,
+			);
+			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		D0232B0228A8EA8900582672 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "metal-nerf-2d/Resources/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		D0232B0328A8EA8900582672 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "metal-nerf-2d/Resources/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D0232B0528A8EA8900582672 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "metal-nerf-2d/Resources/metal-nerf-2d.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3U9XJ6UGQ4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "metal-nerf-2d/Resources/Info.plist";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = Resources/LaunchScreen;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.gilevich.metal-nerf-2d";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D0232B0628A8EA8900582672 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "metal-nerf-2d/Resources/metal-nerf-2d.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3U9XJ6UGQ4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "metal-nerf-2d/Resources/Info.plist";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = Resources/LaunchScreen;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.gilevich.metal-nerf-2d";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D0232AEB28A8EA8700582672 /* Build configuration list for PBXProject "metal-nerf-2d" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D0232B0228A8EA8900582672 /* Debug */,
+				D0232B0328A8EA8900582672 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D0232B0428A8EA8900582672 /* Build configuration list for PBXNativeTarget "metal-nerf-2d" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D0232B0528A8EA8900582672 /* Debug */,
+				D0232B0628A8EA8900582672 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D0D79E5B28BA647900253724 /* XCRemoteSwiftPackageReference "SwiftCoreMLTools" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/JacopoMangiavacchi/SwiftCoreMLTools";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D0D79E5C28BA647900253724 /* SwiftCoreMLTools */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D0D79E5B28BA647900253724 /* XCRemoteSwiftPackageReference "SwiftCoreMLTools" */;
+			productName = SwiftCoreMLTools;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = D0232AE828A8EA8700582672 /* Project object */;
+}

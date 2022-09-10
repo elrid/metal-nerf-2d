@@ -1,0 +1,32 @@
+{
+  "pins" : [
+    {
+      "identity" : "swift-protobuf",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-protobuf.git",
+      "state" : {
+        "revision" : "b8230909dedc640294d7324d37f4c91ad3dcf177",
+        "version" : "1.20.1"
+      }
+    },
+    {
+      "identity" : "swiftcoremltools",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/JacopoMangiavacchi/SwiftCoreMLTools",
+      "state" : {
+        "branch" : "master",
+        "revision" : "40b8602c188b3a4b6d77b833b45add8b3ed6b58f"
+      }
+    },
+    {
+      "identity" : "yams",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpsim/Yams.git",
+      "state" : {
+        "revision" : "81a65c4069c28011ee432f2858ba0de49b086677",
+        "version" : "3.0.1"
+      }
+    }
+  ],
+  "version" : 2
+}
