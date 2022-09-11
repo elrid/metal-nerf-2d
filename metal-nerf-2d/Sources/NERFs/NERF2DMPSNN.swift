@@ -186,11 +186,13 @@ class NERF2DMPSNN {
                 
                 var batchStatesUnsafe: [MPSCNNLossLabels?] = [MPSCNNLossLabels?](repeating: nil, count: cgImage.width)
                 
+                let rowOffset = batch * MemoryLayout<Float32>.size * numberOfColors * cgImage.width
+                
                 DispatchQueue.concurrentPerform(iterations: cgImage.width) { x in
                     guard let labelsDescriptor = MPSCNNLossDataDescriptor(
                         data: Data(
                             bytesNoCopy: outputPointer.advanced(
-                                by: batch * cgImage.bytesPerRow + x * numberOfColors * MemoryLayout<Float32>.size
+                                by: rowOffset + x * numberOfColors * MemoryLayout<Float32>.size
                             ),
                             count: numberOfColors * MemoryLayout<Float32>.size,
                             deallocator: .none
@@ -371,18 +373,16 @@ class NERF2DMPSNN {
             batchImages.append(MPSImage(texture: inputTexture, featureChannels: positionalEncodingLength * 4))
         }
         
-        guard let buffer = commandQueue.makeCommandBuffer() else { return nil }
-        
-        guard let commandEncoder = buffer.makeBlitCommandEncoder() else { return nil }
-        
         #if targetEnvironment(macCatalyst)
+        guard let buffer = commandQueue.makeCommandBuffer() else { return nil }
+        guard let commandEncoder = buffer.makeBlitCommandEncoder() else { return nil }
         for texture in allTextures {
             commandEncoder.synchronize(resource: texture)
         }
-        #endif
         commandEncoder.endEncoding()
         buffer.commit()
         buffer.waitUntilCompleted()
+        #endif
         
         if isCacheEnabled {
             positionalEncodedCacheTextures[row] = batchImages
