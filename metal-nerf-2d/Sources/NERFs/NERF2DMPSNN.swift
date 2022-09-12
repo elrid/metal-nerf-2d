@@ -26,11 +26,11 @@ class NERF2DMPSNN {
     }
     
     private struct NERF2DGraph {
-        let denseInNode: MPSCNNFullyConnectedNode
+        let denseInNode: MPSCNNConvolutionNode
         let denseInReluNode: MPSCNNNeuronReLUNode
-        let denseHiddenNodes: [MPSCNNFullyConnectedNode]
+        let denseHiddenNodes: [MPSCNNConvolutionNode]
         let denseHiddenReluNode: [MPSCNNNeuronReLUNode]
-        let denseOutNode: MPSCNNFullyConnectedNode
+        let denseOutNode: MPSCNNConvolutionNode
         let lossNode: MPSCNNLossNode?
         
         func output() -> MPSNNFilterNode {
@@ -62,7 +62,7 @@ class NERF2DMPSNN {
         let coordsCount: Int = 2 * positionalEncodingLength * 2
         let numberOfColors: Int = 4
         
-        let _learning_rate: Float = 0.0001;
+        let _learning_rate: Float = 0.0005;
         let _beta1: Double = 0.9
         let _beta2: Double = 0.999
         let _epsilon: Float = 1e-07
@@ -160,8 +160,10 @@ class NERF2DMPSNN {
             
             let loss = self.runEpoch(trainingGraph: trainingGraph, cgImage: cgImage, imageArray: &imageArray)
             
-            if let image = self.getImage(height: cgImage.height) {
-                update(image)
+            if epoch % 10 == 0 {
+                if let image = self.getImage(height: cgImage.height) {
+                    update(image)
+                }
             }
             
             print("epoch", epoch, "completed in", Date().timeIntervalSince(startDate), "loss", loss)
@@ -172,78 +174,69 @@ class NERF2DMPSNN {
         var aggregatedLoss = Float32(0)
         guard let outputPointer = imageArray.withUnsafeMutableBytes({ $0.baseAddress }) else { return -1 }
         
-        for batch in 0..<cgImage.height {
-            autoreleasepool {
-                guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
-                
-                guard let batchImages = positionalEncodedInput(
-                    width: cgImage.width,
-                    height: cgImage.height,
-                    row: batch
-                ) else {
-                    return
-                }
-                
-                var batchStatesUnsafe: [MPSCNNLossLabels?] = [MPSCNNLossLabels?](repeating: nil, count: cgImage.width)
+        let height = cgImage.height
+        
+        autoreleasepool {
+            guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+            
+            var batchCoords: [MPSImage] = []
+            var batchStates: [MPSState] = []
+            var lossImages: [MPSImage] = []
+            
+            for batch in 0..<cgImage.height {
+                guard let coords = positionalEncodedInput(width: batchSize, height: height, row: batch) else { return }
+                batchCoords.append(coords)
                 
                 let rowOffset = batch * MemoryLayout<Float32>.size * numberOfColors * cgImage.width
-                
-                DispatchQueue.concurrentPerform(iterations: cgImage.width) { x in
-                    guard let labelsDescriptor = MPSCNNLossDataDescriptor(
-                        data: Data(
-                            bytesNoCopy: outputPointer.advanced(
-                                by: rowOffset + x * numberOfColors * MemoryLayout<Float32>.size
-                            ),
-                            count: numberOfColors * MemoryLayout<Float32>.size,
-                            deallocator: .none
-                        ),
-                        layout: MPSDataLayout.HeightxWidthxFeatureChannels,
-                        size: MTLSizeMake(1, 1, 4)
-                    ) else {
-                        return
-                    }
-                    
-                    let lossState = MPSCNNLossLabels(device: device, labelsDescriptor: labelsDescriptor)
-                    batchStatesUnsafe[x] = lossState
-                }
-                
-                let batchStates = batchStatesUnsafe.compactMap({ $0 })
-                let lossImages = batchStates.map { $0.lossImage() }
-                
-                guard batchStates.count == batchStatesUnsafe.count else { return }
-                
-                guard let result = trainingGraph.encodeBatch(
-                    to: commandBuffer,
-                    sourceImages: [batchImages],
-                    sourceStates: [batchStates]
+                guard let labelsDescriptor = MPSCNNLossDataDescriptor(
+                    data: Data(
+                        bytesNoCopy: outputPointer.advanced(by: rowOffset),
+                        count: batchSize * numberOfColors * MemoryLayout<Float32>.size,
+                        deallocator: .none
+                    ),
+                    layout: MPSDataLayout.HeightxWidthxFeatureChannels,
+                    size: MTLSizeMake(batchSize, 1, 4)
                 ) else {
                     return
                 }
                 
-                MPSImageBatchSynchronize(result, commandBuffer)
-                MPSImageBatchSynchronize(lossImages, commandBuffer)
-                
-                commandBuffer.commit()
-                commandBuffer.waitUntilCompleted()
-                
-                var losses = [Float32](repeating: 0.0, count: result.count)
-                guard let lossesPointer = losses.withUnsafeMutableBytes({ $0.baseAddress }) else { return }
-                
-                for (x, loss) in lossImages.enumerated() {
-                    loss.texture.getBytes(
-                        lossesPointer.advanced(by: x * MemoryLayout<Float32>.size),
-                        bytesPerRow: MemoryLayout<Float32>.size,
-                        from: MTLRegionMake2D(0, 0, 1, 1),
-                        mipmapLevel: 0
-                    )
-                }
-                
-                aggregatedLoss += losses.reduce(0.0, { partialResult, loss -> Float32 in
-                    return partialResult + abs(loss)
-                })
+                let lossState = MPSCNNLossLabels(device: device, labelsDescriptor: labelsDescriptor)
+                batchStates.append(lossState)
+                lossImages.append(lossState.lossImage())
             }
-        }
             
+            guard let results = trainingGraph.encodeBatch(
+                to: commandBuffer,
+                sourceImages: [batchCoords],
+                sourceStates: [batchStates]
+            ) else {
+                return
+            }
+            
+            
+            MPSImageBatchSynchronize(results, commandBuffer)
+            MPSImageBatchSynchronize(lossImages, commandBuffer)
+            
+            commandBuffer.commit()
+            commandBuffer.waitUntilCompleted()
+            
+            
+            var losses = [Float32](repeating: 0.0, count: lossImages.count)
+            guard let lossesPointer = losses.withUnsafeMutableBytes({ $0.baseAddress }) else { return }
+            
+            for (x, loss) in lossImages.enumerated() {
+                loss.texture.getBytes(
+                    lossesPointer.advanced(by: x * MemoryLayout<Float32>.size),
+                    bytesPerRow: MemoryLayout<Float32>.size,
+                    from: MTLRegionMake2D(0, 0, 1, 1),
+                    mipmapLevel: 0
+                )
+            }
+            
+            aggregatedLoss += losses.reduce(0.0, { partialResult, loss -> Float32 in
+                return partialResult + abs(loss)
+            })
+        }
         
         return aggregatedLoss
     }
@@ -266,38 +259,38 @@ class NERF2DMPSNN {
                 resultImageIsNeeded: true
             ) else { return }
             
+            inferenceGraph.options.insert(.verbose)
             inferenceGraph.format = .float32
             
+            guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+            
+            var batchCoords: [MPSImage] = []
+            
             for batch in 0..<height {
-                guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+                guard let coords = positionalEncodedInput(width: batchSize, height: height, row: batch) else { return }
                 
-                guard let batchImages = positionalEncodedInput(width: batchSize, height: height, row: batch) else {
-                    return
-                }
-                
-                guard let result = inferenceGraph.encodeBatch(
-                    to: commandBuffer,
-                    sourceImages: [batchImages],
-                    sourceStates: nil
-                ) else {
-                    return
-                }
-                
-                MPSImageBatchSynchronize(result, commandBuffer)
-                
-                commandBuffer.commit()
-                commandBuffer.waitUntilCompleted()
-                
-                for (x, image) in result.enumerated() {
-                    image.texture.getBytes(
-                        imageArrayPointer.advanced(
-                            by: batchSize * 4 * MemoryLayout<Float32>.size * batch + x * MemoryLayout<Float32>.size * 4
-                        ),
-                        bytesPerRow: 4 * MemoryLayout<Float32>.size,
-                        from: MTLRegionMake2D(0, 0, 1, 1),
-                        mipmapLevel: 0
-                    )
-                }
+                batchCoords.append(coords)
+            }
+            
+            
+            guard let results = inferenceGraph.encodeBatch(
+                to: commandBuffer,
+                sourceImages: [batchCoords],
+                sourceStates: nil
+            ) else { return }
+            
+            MPSImageBatchSynchronize(results, commandBuffer)
+            
+            commandBuffer.commit()
+            commandBuffer.waitUntilCompleted()
+            
+            for batch in 0..<results.count {
+                results[batch].texture.getBytes(
+                    imageArrayPointer.advanced(by: batchSize * 4 * MemoryLayout<Float32>.size * batch),
+                    bytesPerRow: results[batch].width * 4 * MemoryLayout<Float32>.size,
+                    from: MTLRegionMake2D(0, 0, results[batch].width, 1),
+                    mipmapLevel: 0
+                )
             }
         }
 
@@ -306,11 +299,11 @@ class NERF2DMPSNN {
 
     // MARK: Positional encoding
     
-    private var positionalEncodedCacheTextures: [Int: [MPSImage]] = [:]
+    private var positionalEncodedCacheTextures: [Int: MPSImage] = [:]
     private var cachedSize: (Int, Int) = (0,0)
-    private var isCacheEnabled: Bool = false // due to limit of number of textures, tested on Radeon VII, macOS 13.0
+    private var isCacheEnabled: Bool = true
     
-    private func positionalEncodedInput(width: Int, height: Int, row: Int) -> [MPSImage]? {
+    private func positionalEncodedInput(width: Int, height: Int, row: Int) -> MPSImage? {
         if isCacheEnabled {
             if cachedSize.0 != width || cachedSize.1 != height {
                 positionalEncodedCacheTextures = [:]
@@ -336,32 +329,28 @@ class NERF2DMPSNN {
             }
         }
 
+        let textureDescriptor = MTLTextureDescriptor()
+        textureDescriptor.textureType = .type2DArray
+        textureDescriptor.width = width
+        textureDescriptor.height = 1
+        textureDescriptor.arrayLength = positionalEncodingLength
+        textureDescriptor.pixelFormat = .rgba32Float
+        textureDescriptor.resourceOptions = [.cpuCacheModeWriteCombined]
         
-        var batchImages: [MPSImage] = []
-        var allTextures: [MTLTexture] = []
+        #if targetEnvironment(macCatalyst)
+        textureDescriptor.resourceOptions.insert(.storageModeShared)
+        #endif
+        
+        guard let inputTexture = device.makeTexture(descriptor: textureDescriptor) else { return nil }
         
         guard let inputPointer = input.withUnsafeBytes({ $0.baseAddress }) else { return nil }
         
         for x in 0..<width {
-            let textureDescriptor = MTLTextureDescriptor()
-            textureDescriptor.textureType = .type2DArray
-            textureDescriptor.width = 1
-            textureDescriptor.height = 1
-            textureDescriptor.arrayLength = positionalEncodingLength
-            textureDescriptor.pixelFormat = .rgba32Float
-            textureDescriptor.resourceOptions = [.cpuCacheModeWriteCombined]
-            
-            #if targetEnvironment(macCatalyst)
-            textureDescriptor.resourceOptions.insert(.storageModeShared)
-            #endif
-            
-            guard let inputTexture = device.makeTexture(descriptor: textureDescriptor) else { return nil }
             
             let offsetX = x * positionalEncodingLength * 4 * MemoryLayout<Float32>.size
-            
             for i in 0..<(positionalEncodingLength) {
                 inputTexture.replace(
-                    region: MTLRegionMake2D(0, 0, 1, 1),
+                    region: MTLRegionMake2D(x, 0, 1, 1),
                     mipmapLevel: 0,
                     slice: i,
                     withBytes: inputPointer.advanced(by: offsetX + i * MemoryLayout<Float32>.size * 4),
@@ -369,26 +358,24 @@ class NERF2DMPSNN {
                     bytesPerImage: MemoryLayout<Float32>.size * 4
                 )
             }
-            allTextures.append(inputTexture)
-            batchImages.append(MPSImage(texture: inputTexture, featureChannels: positionalEncodingLength * 4))
         }
         
         #if targetEnvironment(macCatalyst)
         guard let buffer = commandQueue.makeCommandBuffer() else { return nil }
         guard let commandEncoder = buffer.makeBlitCommandEncoder() else { return nil }
-        for texture in allTextures {
-            commandEncoder.synchronize(resource: texture)
-        }
+        commandEncoder.synchronize(resource: inputTexture)
         commandEncoder.endEncoding()
         buffer.commit()
         buffer.waitUntilCompleted()
         #endif
         
+        let image = MPSImage(texture: inputTexture, featureChannels: positionalEncodingLength * 4)
+        
         if isCacheEnabled {
-            positionalEncodedCacheTextures[row] = batchImages
+            positionalEncodedCacheTextures[row] = image
         }
         
-        return batchImages
+        return image
     }
     
 }
@@ -397,17 +384,17 @@ private extension NERF2DMPSNN {
     
     
     private func buildGraph(forTraining: Bool) -> NERF2DGraph {
-        let denseInNode = MPSCNNFullyConnectedNode(source: MPSNNImageNode(handle: nil), weights: nerfGraph.denseInData)
+        let denseInNode = MPSCNNConvolutionNode(source: MPSNNImageNode(handle: nil), weights: nerfGraph.denseInData)
         var lastImage = denseInNode.resultImage
         
         let denseInReluNode = MPSCNNNeuronReLUNode(source: lastImage, a: 0.01)
         lastImage = denseInReluNode.resultImage
         
-        var denseHiddenNodes: [MPSCNNFullyConnectedNode] = []
+        var denseHiddenNodes: [MPSCNNConvolutionNode] = []
         var denseReluNodes: [MPSCNNNeuronReLUNode] = []
         
         for denseHidden in nerfGraph.denseHiddenData {
-            let denseHiddenNode = MPSCNNFullyConnectedNode(source: lastImage, weights: denseHidden)
+            let denseHiddenNode = MPSCNNConvolutionNode(source: lastImage, weights: denseHidden)
             denseHiddenNodes.append(denseHiddenNode)
             lastImage = denseHiddenNode.resultImage
             let denseReluNode = MPSCNNNeuronReLUNode(source: lastImage, a: 0.01)
@@ -415,12 +402,11 @@ private extension NERF2DMPSNN {
             lastImage = denseReluNode.resultImage
         }
         
-        let denseOut = MPSCNNFullyConnectedNode(source: lastImage, weights: nerfGraph.denseOutData)
+        let denseOut = MPSCNNConvolutionNode(source: lastImage, weights: nerfGraph.denseOutData)
         let loss: MPSCNNLossNode?
         
         if forTraining {
             let lossDesc = MPSCNNLossDescriptor(type: .meanAbsoluteError, reductionType: .sum)
-            lossDesc.weight = 1.0 / Float(batchSize)
             loss = MPSCNNLossNode(source: denseOut.resultImage, lossDescriptor: lossDesc)
         } else {
             loss = nil

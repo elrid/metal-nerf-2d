@@ -10,7 +10,7 @@ import UIKit
 class ViewController: UIViewController {
     
     private lazy var image = UIImage(named: "512px")
-    private lazy var nerf = NERF2DMLCompute(batchSize: self.image?.cgImage?.width ?? 512, networkWidth: 512, networkDepth: 3)
+    private lazy var nerf = NERF2DMPSNN(batchSize: self.image?.cgImage?.width ?? 512, networkWidth: 512, networkDepth: 3)
     
     private lazy var sourceImageView = UIImageView(image: self.image)
     private lazy var targetImageView = UIImageView()
@@ -43,7 +43,7 @@ class ViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let image = self?.image else { return }
-            self?.nerf?.train(on: image, epochs: 1024) { image in
+            self?.nerf?.train(on: image, epochs: 8192) { image in
                 DispatchQueue.main.async { [weak self] in
                     self?.targetImageView.image = image
                 }
