@@ -155,90 +155,70 @@ class NERF2DMPSNN {
         trainingGraph.format = .float32
         
         for epoch in 0..<epochs {
-            
-            let startDate = Date()
-            
-            let loss = self.runEpoch(trainingGraph: trainingGraph, cgImage: cgImage, imageArray: &imageArray)
+            self.runEpoch(trainingGraph: trainingGraph, cgImage: cgImage, imageArray: &imageArray)
             
             if epoch % 10 == 0 {
                 if let image = self.getImage(height: cgImage.height) {
                     update(image)
                 }
             }
-            
-            print("epoch", epoch, "completed in", Date().timeIntervalSince(startDate), "loss", loss)
         }
     }
     
-    private func runEpoch(trainingGraph: MPSNNGraph, cgImage: CGImage, imageArray: inout [Float32]) -> Float32 {
+    private func runEpoch(trainingGraph: MPSNNGraph, cgImage: CGImage, imageArray: inout [Float32]) {
         var aggregatedLoss = Float32(0)
-        guard let outputPointer = imageArray.withUnsafeMutableBytes({ $0.baseAddress }) else { return -1 }
+        guard let outputPointer = imageArray.withUnsafeMutableBytes({ $0.baseAddress }) else { return }
         
         let height = cgImage.height
         
-        autoreleasepool {
-            guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+        autoreleasepool { [weak self] in
+            guard let self = self else { return }
+            guard let commandBuffer = self.commandQueue.makeCommandBuffer() else { return }
             
-            var batchCoords: [MPSImage] = []
-            var batchStates: [MPSState] = []
-            var lossImages: [MPSImage] = []
             
-            for batch in 0..<cgImage.height {
-                guard let coords = positionalEncodedInput(width: batchSize, height: height, row: batch) else { return }
-                batchCoords.append(coords)
+            guard let coords = self.positionalEncodedInput(width: self.batchSize, height: height) else { return }
                 
-                let rowOffset = batch * MemoryLayout<Float32>.size * numberOfColors * cgImage.width
-                guard let labelsDescriptor = MPSCNNLossDataDescriptor(
-                    data: Data(
-                        bytesNoCopy: outputPointer.advanced(by: rowOffset),
-                        count: batchSize * numberOfColors * MemoryLayout<Float32>.size,
-                        deallocator: .none
-                    ),
-                    layout: MPSDataLayout.HeightxWidthxFeatureChannels,
-                    size: MTLSizeMake(batchSize, 1, 4)
-                ) else {
-                    return
-                }
-                
-                let lossState = MPSCNNLossLabels(device: device, labelsDescriptor: labelsDescriptor)
-                batchStates.append(lossState)
-                lossImages.append(lossState.lossImage())
-            }
-            
-            guard let results = trainingGraph.encodeBatch(
-                to: commandBuffer,
-                sourceImages: [batchCoords],
-                sourceStates: [batchStates]
+            guard let labelsDescriptor = MPSCNNLossDataDescriptor(
+                data: Data(
+                    bytesNoCopy: outputPointer,
+                    count: cgImage.width * cgImage.height * self.numberOfColors * MemoryLayout<Float32>.size,
+                    deallocator: .none
+                ),
+                layout: MPSDataLayout.HeightxWidthxFeatureChannels,
+                size: MTLSizeMake(cgImage.width, cgImage.height, 4)
             ) else {
                 return
             }
             
+            let lossState = MPSCNNLossLabels(device: self.device, labelsDescriptor: labelsDescriptor)
             
-            MPSImageBatchSynchronize(results, commandBuffer)
-            MPSImageBatchSynchronize(lossImages, commandBuffer)
+            guard let result = trainingGraph.encode(
+                to: commandBuffer,
+                sourceImages: [coords],
+                sourceStates: [lossState],
+                intermediateImages: nil,
+                destinationStates: nil
+            ) else {
+                return
+            }
+            
+            result.synchronize(on: commandBuffer)
+            lossState.lossImage().synchronize(on: commandBuffer)
             
             commandBuffer.commit()
-            commandBuffer.waitUntilCompleted()
-            
-            
-            var losses = [Float32](repeating: 0.0, count: lossImages.count)
-            guard let lossesPointer = losses.withUnsafeMutableBytes({ $0.baseAddress }) else { return }
-            
-            for (x, loss) in lossImages.enumerated() {
-                loss.texture.getBytes(
-                    lossesPointer.advanced(by: x * MemoryLayout<Float32>.size),
+            commandBuffer.addCompletedHandler { _ in
+                var loss: Float32 = 0
+                
+                lossState.lossImage().texture.getBytes(
+                    &loss,
                     bytesPerRow: MemoryLayout<Float32>.size,
                     from: MTLRegionMake2D(0, 0, 1, 1),
                     mipmapLevel: 0
                 )
+                
+                print(loss)
             }
-            
-            aggregatedLoss += losses.reduce(0.0, { partialResult, loss -> Float32 in
-                return partialResult + abs(loss)
-            })
         }
-        
-        return aggregatedLoss
     }
     
     // MARK: Inference
@@ -259,39 +239,31 @@ class NERF2DMPSNN {
                 resultImageIsNeeded: true
             ) else { return }
             
-            inferenceGraph.options.insert(.verbose)
             inferenceGraph.format = .float32
             
             guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
-            
-            var batchCoords: [MPSImage] = []
-            
-            for batch in 0..<height {
-                guard let coords = positionalEncodedInput(width: batchSize, height: height, row: batch) else { return }
-                
-                batchCoords.append(coords)
-            }
+            guard let coords = positionalEncodedInput(width: batchSize, height: height) else { return }
             
             
-            guard let results = inferenceGraph.encodeBatch(
+            guard let result = inferenceGraph.encode(
                 to: commandBuffer,
-                sourceImages: [batchCoords],
-                sourceStates: nil
+                sourceImages: [coords],
+                sourceStates: nil,
+                intermediateImages: nil,
+                destinationStates: nil
             ) else { return }
             
-            MPSImageBatchSynchronize(results, commandBuffer)
+            result.synchronize(on: commandBuffer)
             
             commandBuffer.commit()
             commandBuffer.waitUntilCompleted()
             
-            for batch in 0..<results.count {
-                results[batch].texture.getBytes(
-                    imageArrayPointer.advanced(by: batchSize * 4 * MemoryLayout<Float32>.size * batch),
-                    bytesPerRow: results[batch].width * 4 * MemoryLayout<Float32>.size,
-                    from: MTLRegionMake2D(0, 0, results[batch].width, 1),
-                    mipmapLevel: 0
-                )
-            }
+            result.texture.getBytes(
+                imageArrayPointer,
+                bytesPerRow: result.width * 4 * MemoryLayout<Float32>.size,
+                from: MTLRegionMake2D(0, 0, result.width, result.height),
+                mipmapLevel: 0
+            )
         }
 
         return UIImage(width: batchSize, height: height, fp32Array: imageArray)
@@ -299,40 +271,27 @@ class NERF2DMPSNN {
 
     // MARK: Positional encoding
     
-    private var positionalEncodedCacheTextures: [Int: MPSImage] = [:]
+    private var positionalEncodedCacheTexture: MPSImage? = nil
     private var cachedSize: (Int, Int) = (0,0)
     private var isCacheEnabled: Bool = true
     
-    private func positionalEncodedInput(width: Int, height: Int, row: Int) -> MPSImage? {
+    private func positionalEncodedInput(width: Int, height: Int) -> MPSImage? {
         if isCacheEnabled {
             if cachedSize.0 != width || cachedSize.1 != height {
-                positionalEncodedCacheTextures = [:]
+                positionalEncodedCacheTexture = nil
                 cachedSize = (width, height)
             }
             
-            if let cached = positionalEncodedCacheTextures[row] {
+            if let cached = positionalEncodedCacheTexture {
                 return cached
             }
         }
         
-        let xCoords = (0..<width).map { (Float32($0) / Float32(width)) }
-        let yCoords = Array<Float32>(repeating: (Float32(row) / Float32(height)), count: width)
         
-        let input = zip(xCoords, yCoords).flatMap { coords -> [Float32] in
-            return (0..<positionalEncodingLength).flatMap { encodingPosition -> [Float32] in
-                return [
-                    sinf(powf(2, Float(encodingPosition)) * .pi * Float(coords.0)),
-                    cosf(powf(2, Float(encodingPosition)) * .pi * Float(coords.0)),
-                    sinf(powf(2, Float(encodingPosition)) * .pi * Float(coords.1)),
-                    cosf(powf(2, Float(encodingPosition)) * .pi * Float(coords.1)),
-                ]
-            }
-        }
-
         let textureDescriptor = MTLTextureDescriptor()
         textureDescriptor.textureType = .type2DArray
         textureDescriptor.width = width
-        textureDescriptor.height = 1
+        textureDescriptor.height = height
         textureDescriptor.arrayLength = positionalEncodingLength
         textureDescriptor.pixelFormat = .rgba32Float
         textureDescriptor.resourceOptions = [.cpuCacheModeWriteCombined]
@@ -343,20 +302,35 @@ class NERF2DMPSNN {
         
         guard let inputTexture = device.makeTexture(descriptor: textureDescriptor) else { return nil }
         
-        guard let inputPointer = input.withUnsafeBytes({ $0.baseAddress }) else { return nil }
-        
-        for x in 0..<width {
+        let xCoords = (0..<width).map { (Float32($0) / Float32(width)) }
+        for y in 0..<height {
+            let yCoords = Array<Float32>(repeating: (Float32(y) / Float32(height)), count: width)
             
-            let offsetX = x * positionalEncodingLength * 4 * MemoryLayout<Float32>.size
-            for i in 0..<(positionalEncodingLength) {
-                inputTexture.replace(
-                    region: MTLRegionMake2D(x, 0, 1, 1),
-                    mipmapLevel: 0,
-                    slice: i,
-                    withBytes: inputPointer.advanced(by: offsetX + i * MemoryLayout<Float32>.size * 4),
-                    bytesPerRow: MemoryLayout<Float32>.size * 4,
-                    bytesPerImage: MemoryLayout<Float32>.size * 4
-                )
+            let input = zip(xCoords, yCoords).flatMap { coords -> [Float32] in
+                return (0..<positionalEncodingLength).flatMap { encodingPosition -> [Float32] in
+                    return [
+                        sinf(powf(2, Float(encodingPosition)) * .pi * Float(coords.0)),
+                        cosf(powf(2, Float(encodingPosition)) * .pi * Float(coords.0)),
+                        sinf(powf(2, Float(encodingPosition)) * .pi * Float(coords.1)),
+                        cosf(powf(2, Float(encodingPosition)) * .pi * Float(coords.1)),
+                    ]
+                }
+            }
+            
+            guard let inputPointer = input.withUnsafeBytes({ $0.baseAddress }) else { return nil }
+            
+            for x in 0..<width {
+                let offsetX = x * positionalEncodingLength * 4 * MemoryLayout<Float32>.size
+                for i in 0..<(positionalEncodingLength) {
+                    inputTexture.replace(
+                        region: MTLRegionMake2D(x, y, 1, 1),
+                        mipmapLevel: 0,
+                        slice: i,
+                        withBytes: inputPointer.advanced(by: offsetX + i * MemoryLayout<Float32>.size * 4),
+                        bytesPerRow: MemoryLayout<Float32>.size * 4,
+                        bytesPerImage: MemoryLayout<Float32>.size * 4
+                    )
+                }
             }
         }
         
@@ -372,7 +346,7 @@ class NERF2DMPSNN {
         let image = MPSImage(texture: inputTexture, featureChannels: positionalEncodingLength * 4)
         
         if isCacheEnabled {
-            positionalEncodedCacheTextures[row] = image
+            positionalEncodedCacheTexture = image
         }
         
         return image

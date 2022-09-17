@@ -10,7 +10,11 @@ import UIKit
 class ViewController: UIViewController {
     
     private lazy var image = UIImage(named: "512px")
+    #if targetEnvironment(macCatalyst)
     private lazy var nerf = NERF2DMPSNN(batchSize: self.image?.cgImage?.width ?? 512, networkWidth: 512, networkDepth: 3)
+    #else
+    private lazy var nerf = NERF2DMLCompute(batchSize: self.image?.cgImage?.width ?? 512, networkWidth: 512, networkDepth: 3)
+    #endif
     
     private lazy var sourceImageView = UIImageView(image: self.image)
     private lazy var targetImageView = UIImageView()
