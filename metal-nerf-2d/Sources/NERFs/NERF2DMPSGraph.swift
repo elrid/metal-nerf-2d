@@ -37,52 +37,61 @@ class NERF2DMPSGraph {
         self.commandQueue = commandQueue
         self.batchSize = batchSize
         self.graph = MPSGraph()
+        self.graph.options = .synchronizeResults
         self.positionalEncodingLength = positionalEncodingLength
         
         let coordsCount: Int = 2 * positionalEncodingLength * 2
         
-        self.inputTensor = graph.placeholder(shape: [batchSize as NSNumber, coordsCount as NSNumber], name: "input tensor")
-        self.lossColorTensor = graph.placeholder(shape: [batchSize as NSNumber, numberOfColors as NSNumber], name: "loss color tensor")
+        self.inputTensor = graph.placeholder(shape: [batchSize as NSNumber, coordsCount as NSNumber], dataType: .float32, name: "input tensor")
+        self.lossColorTensor = graph.placeholder(shape: [batchSize as NSNumber, numberOfColors as NSNumber], dataType: .float32, name: "loss color tensor")
         
         var variableTensors = [MPSGraphTensor]()
         
-        let denseInTensor = NERF2DMPSGraph.addFullyConnectedLayer(
+        let (denseInTensor, denseInVariableTensors) = NERF2DMPSGraph.addFullyConnectedLayer(
             graph: graph,
             sourceTensor: inputTensor,
             weightsShape: [coordsCount as NSNumber, networkWidth as NSNumber],
-            hasActivation: true,
-            variableTensors: &variableTensors
+            hasActivation: true
         )
+
+        variableTensors += denseInVariableTensors
         
         var lastTensor: MPSGraphTensor = denseInTensor
         
         for _ in 0..<networkDepth {
-            lastTensor = NERF2DMPSGraph.addFullyConnectedLayer(
+            let (fcOutTensor, fcVariableTensors) = NERF2DMPSGraph.addFullyConnectedLayer(
                 graph: graph,
                 sourceTensor: lastTensor,
                 weightsShape: [networkWidth as NSNumber, networkWidth as NSNumber],
-                hasActivation: true,
-                variableTensors: &variableTensors
+                hasActivation: true
             )
+            lastTensor = fcOutTensor
+            variableTensors += fcVariableTensors
         }
         
-        let fc1Tensor = NERF2DMPSGraph.addFullyConnectedLayer(
+        let (fc1Tensor, fc1VariableTensors) = NERF2DMPSGraph.addFullyConnectedLayer(
             graph: graph,
             sourceTensor: lastTensor,
             weightsShape: [networkWidth as NSNumber, numberOfColors as NSNumber],
-            hasActivation: false,
-            variableTensors: &variableTensors
+            hasActivation: false
         )
-        
-        let lossTensor = graph.reductionSum(with: fc1Tensor, axis: -1, name: "loss tensor")
+
+        variableTensors += fc1VariableTensors
+
+        let resultTensor = graph.subtraction(fc1Tensor, self.lossColorTensor, name: "difference")
+        let absTensor = graph.absolute(with: resultTensor, name: "abs")
+        let sumTensor = graph.reductionSum(with: absTensor, axes: [0 as NSNumber, 1 as NSNumber], name: "reduction")
+
+        let batchSizeTensor = graph.constant(Double(batchSize * numberOfColors), shape: [1], dataType: .float32)
+        let lossMeanTensor = graph.division(sumTensor, batchSizeTensor, name: nil)
         
         self.targetInferenceTensors = [fc1Tensor]
         self.targetInferenceOps = []
         
-        self.targetTrainingTensors = [lossTensor]
+        self.targetTrainingTensors = [lossMeanTensor]
         self.targetTrainingOps = NERF2DMPSGraph.getAssignOperations(
             graph: graph,
-            lossTensor: lossTensor,
+            lossTensor: lossMeanTensor,
             variableTensors: variableTensors
         )
         
@@ -115,7 +124,8 @@ class NERF2DMPSGraph {
     private func runEpoch(cgImage: CGImage, imageArrayPointer: UnsafeMutablePointer<Float32>) -> Float32 {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return -1 }
         let mpsCommandBuffer = MPSCommandBuffer(commandBuffer: commandBuffer)
-        
+
+        var loss: Float32 = 0.0
         for batch in 0..<cgImage.height {
             
             var inputArray = positionalEncodedInput(width: cgImage.width, height: cgImage.height, row: batch)
@@ -136,20 +146,21 @@ class NERF2DMPSGraph {
             let outputData = MPSNDArray(device: device, descriptor: outputDesc)
             outputData.label = "output Data"
             
-            let rowPointer = imageArrayPointer.advanced(by: cgImage.width * batch * 4)
-            outputData.writeBytes(rowPointer, strideBytes: nil)
+            let rowPointer = imageArrayPointer.advanced(by: cgImage.width * batch * numberOfColors)
+
+            outputData.writeBytes(UnsafeMutableRawPointer(rowPointer), strideBytes: nil)
             
             let executionDesc = MPSGraphExecutionDescriptor()
             executionDesc.waitUntilCompleted = true
-            executionDesc.completionHandler = { (resultsDictionary, nil) in
-                var loss: Float32 = 0
+            executionDesc.completionHandler = { [weak self] (resultsDictionary, nil) in
+                guard let slf = self else { return }
+                var localLoss: Float32 = 0
 
-                guard let tensor = self.targetTrainingTensors.first else { return }
+                guard let tensor = slf.targetTrainingTensors.first else { return }
                 guard let lossTensorData = resultsDictionary[tensor] else { return }
 
-                lossTensorData.mpsndarray().readBytes(&loss, strideBytes: nil)
-
-                print(loss)
+                lossTensorData.mpsndarray().readBytes(&localLoss, strideBytes: nil)
+                loss += localLoss
             }
             
             let feed = [inputTensor: MPSGraphTensorData(inputData), lossColorTensor: MPSGraphTensorData(outputData)]
@@ -161,12 +172,13 @@ class NERF2DMPSGraph {
                 targetOperations: targetTrainingOps,
                 executionDescriptor: executionDesc
             )
+            outputData.synchronize(on: mpsCommandBuffer)
         }
-        
+
         mpsCommandBuffer.commit()
         mpsCommandBuffer.waitUntilCompleted()
         
-        return -1
+        return loss
     }
     
     private func getImage(height: Int) -> UIImage? {
@@ -187,8 +199,9 @@ class NERF2DMPSGraph {
             inputData.writeBytes(&inputArray, strideBytes: nil)
             inputData.synchronize(on: commandBuffer)
             
-            let outputDesc = MPSNDArrayDescriptor(dataType: .float32, shape: [batchSize as NSNumber, 4])
+            let outputDesc = MPSNDArrayDescriptor(dataType: .float32, shape: [batchSize as NSNumber, numberOfColors as NSNumber])
             let outputData = MPSNDArray(device: device, descriptor: outputDesc)
+            outputData.synchronize(on: commandBuffer)
             let outputOffset = batchSize * batch * MemoryLayout<Float32>.size * 4
             
             
@@ -258,9 +271,8 @@ private extension NERF2DMPSGraph {
         graph: MPSGraph,
         sourceTensor: MPSGraphTensor,
         weightsShape: [NSNumber],
-        hasActivation: Bool,
-        variableTensors: inout [MPSGraphTensor]
-    ) -> MPSGraphTensor {
+        hasActivation: Bool
+    ) -> (MPSGraphTensor, [MPSGraphTensor]) {
         assert(weightsShape.count == 2)
 
         var weightCount = 1
@@ -270,17 +282,17 @@ private extension NERF2DMPSGraph {
         
         let biasCount = weightsShape[1].intValue
         
-        let fc0WeightsValues = getRandomData(numValues: UInt(weightCount), minimum: -0.2, maximum: 0.2)
-        let fc0BiasesValues = [Float](repeating: 0.1, count: biasCount)
+        var fc0WeightsValues = getRandomData(numValues: UInt(weightCount), minimum: -0.2, maximum: 0.2)
+        var fc0BiasesValues = [Float](repeating: 0.01, count: biasCount)
 
         let fcWeights = graph.variable(
-            with: Data(bytes: fc0WeightsValues, count: weightCount * 4),
+            with: Data(bytes: &fc0WeightsValues, count: weightCount * 4),
             shape: weightsShape,
             dataType: .float32,
             name: "variable for fc weights"
         )
         let fcBiases = graph.variable(
-            with: Data(bytes: fc0BiasesValues, count: biasCount * 4),
+            with: Data(bytes: &fc0BiasesValues, count: biasCount * 4),
             shape: [biasCount as NSNumber],
             dataType: .float32,
             name: "variable for fc biases"
@@ -289,48 +301,82 @@ private extension NERF2DMPSGraph {
         let fcTensor = graph.matrixMultiplication(primary: sourceTensor, secondary: fcWeights, name: "fc layer")
         
         let fcBiasTensor = graph.addition(fcTensor, fcBiases, name: "fc biases")
-        
-        variableTensors += [fcWeights, fcBiases]
 
         if !hasActivation {
-            return fcBiasTensor
+            return (fcBiasTensor, [fcWeights, fcBiases])
         }
         
-        let fcActivationTensor = graph.reLU(with: fcBiasTensor, name: nil)
+        let fcActivationTensor = graph.reLU(with: fcBiasTensor, name: "relu")
 
-        return fcActivationTensor
+        return (fcActivationTensor, [fcWeights, fcBiases])
     }
     
     static func getAssignOperations(
         graph: MPSGraph,
         lossTensor: MPSGraphTensor,
-        variableTensors: [MPSGraphTensor]
+        variableTensors: [MPSGraphTensor],
+        useAdam: Bool = false
     ) -> [MPSGraphOperation] {
-        let gradTensors = graph.gradients(of: lossTensor, with: variableTensors, name: nil)
-     
-        var updateOps: [MPSGraphOperation] = []
-        for (key, value) in gradTensors {
-            for tensor in graph.adam(
-                learningRate: graph.constant(0.0001, dataType: .float32),
-                beta1: graph.constant(0.9, dataType: .float32),
-                beta2: graph.constant(0.999, dataType: .float32),
-                epsilon: graph.constant(1e-7, dataType: .float32),
-                beta1Power: graph.constant(1, dataType: .float32),
-                beta2Power: graph.constant(1, dataType: .float32),
-                values: key,
-                momentum: graph.constant(0.0, dataType: .float32),
-                velocity: graph.constant(0.0, dataType: .float32),
-                maximumVelocity: graph.constant(1.0, dataType: .float32),
-                gradient: value,
-                name: "adam optimizer"
-            ) {
-                let assign = graph.assign(key, tensor: tensor, name: "idk")
-                
+        if useAdam {
+            let gradTensors = graph.gradients(of: lossTensor, with: variableTensors, name: nil)
+
+            var updateOps: [MPSGraphOperation] = []
+            for (key, value) in gradTensors {
+                for tensor in graph.adam(
+                    currentLearningRate: graph.variable(0.0001, dataType: .float32),
+                    beta1: graph.variable(0.9, dataType: .float32),
+                    beta2: graph.variable(0.999, dataType: .float32),
+                    epsilon: graph.variable(1e-7, dataType: .float32),
+                    values: key,
+                    momentum: graph.variable(0.0, dataType: .float32),
+                    velocity: graph.variable(0.0, dataType: .float32),
+                    maximumVelocity: graph.variable(0.0, dataType: .float32),
+                    gradient: value,
+                    name: "adam optimizer"
+                ) {
+                    let assign = graph.assign(key, tensor: tensor, name: "idk \(arc4random())")
+
+                    updateOps += [assign]
+                }
+            }
+
+            return updateOps
+        } else {
+            let gradTensors = graph.gradients(of: lossTensor, with: variableTensors, name: nil)
+
+            let lambdaTensor = graph.constant(0.0001, shape: [1], dataType: .float32)
+
+            var updateOps: [MPSGraphOperation] = []
+            for (key, value) in gradTensors {
+                let updateTensor = graph.stochasticGradientDescent(learningRate: lambdaTensor,
+                                                                   values: key,
+                                                                   gradient: value,
+                                                                   name: nil)
+
+                let assign = graph.assign(key, tensor: updateTensor, name: nil)
+
                 updateOps += [assign]
             }
+
+            return updateOps
         }
-        
-        return updateOps
     }
     
+}
+
+extension MPSGraph {
+
+    func variable(_ value: Float32, dataType: MPSDataType) -> MPSGraphTensor {
+        switch dataType {
+        case .float32:
+            var localValue = value
+            let data = Data(bytes: &localValue, count: MemoryLayout<Float32>.size)
+            return variable(with: data, shape: [1 as NSNumber], dataType: dataType, name: nil)
+        default:
+            assertionFailure("Unsupported dataType")
+            return constant(Double(value), dataType: dataType)
+        }
+
+    }
+
 }
